@@ -1,0 +1,83 @@
+module.exports = {
+  apps: [
+    {
+      name: "api-dev",
+      script: "./bin/www",
+      watch: true,
+      ignore_watch: ["public/images", ".git"],
+      max_memory_restart: "512M",
+      exec_mode: "fork",
+      env: {
+        "NODE_ENV": "development",
+        "PORT": "3000",
+        "GMAPS_API_KEY": "",
+        "JWT_SECRET_KEY": "JWT_SECRET_KEY",
+        "AWS_ACCESS_KEY_ID": "",
+        "AWS_SECRET_ACCESS_KEY": "",
+        "AWS_DEFAULT_REGION": "",
+        "AWS_BUCKET": "",
+        "AWS_BUCKET_URL": "",
+        "AWS_URL": "",
+        "MAIL_DRIVER": "",
+        "MAIL_HOST": "",
+        "MAIL_PORT": 587,
+        "MAIL_USERNAME": "",
+        "MAIL_PASSWORD": "",
+        "MAIL_ENCRYPTION": "tls",
+        "RAJAONGKIR_KEY": "",
+        "RAJAONGKIR_URL": "https://api.rajaongkir.com",
+        "DOKU_URL_PROD": "https://pay.doku.com",
+        "DOKU_URL_DEV": "https://staging.doku.com",
+        "DOKU_IS_PROD": false,
+        "DOKU_STORE_ID": "",
+        "DOKU_SHARED_KEY": ""
+      }
+    },
+    {
+      name: "api",
+      script: "./bin/www",
+      instances: 1,
+      exec_mode: "cluster",
+      max_memory_restart: "512M",
+      env: {
+        "NODE_ENV": "production",
+        "PORT": "3000",
+        "GMAPS_API_KEY": "",
+        "JWT_SECRET_KEY": "JWT_SECRET_KEY",
+        "AWS_ACCESS_KEY_ID": "",
+        "AWS_SECRET_ACCESS_KEY": "",
+        "AWS_DEFAULT_REGION": "",
+        "AWS_BUCKET": "",
+        "AWS_BUCKET_URL": "",
+        "AWS_URL": "",
+        "MAIL_DRIVER": "smtp",
+        "MAIL_HOST": "",
+        "MAIL_PORT": 587,
+        "MAIL_USERNAME": "",
+        "MAIL_PASSWORD": "",
+        "MAIL_ENCRYPTION": "tls",
+        "RAJAONGKIR_KEY": "",
+        "RAJAONGKIR_URL": "https://api.rajaongkir.com",
+        "DOKU_URL_PROD": "https://pay.doku.com",
+        "DOKU_URL_DEV": "https://staging.doku.com",
+        "DOKU_IS_PROD": false,
+        "DOKU_STORE_ID": "",
+        "DOKU_SHARED_KEY": ""
+      }
+    }
+  ],
+
+  deploy: {
+    production: {
+      user: 'SSH_USERNAME',
+      host: 'SSH_HOSTMACHINE',
+      ref: 'origin/master',
+      repo: 'GIT_REPOSITORY',
+      path: 'DESTINATION_PATH',
+      'pre-deploy-local': '',
+      'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
+      'pre-setup': ''
+    }
+  }
+};
+

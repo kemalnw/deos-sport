@@ -1,0 +1,52 @@
+// console.log('virtualStartTime', virtualStartTime)
+// console.log('virtualEndTime', virtualEndTime)
+// console.log()
+// console.log()
+// console.log("# Set Timezone Asia/Jakarta")
+// console.log('New Date', new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+// console.log('Start', new Date(startTime).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+// console.log('End', new Date(endTime).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+// console.log('--------------------')
+// console.log(`${new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`);
+// console.log(`${new Date(startTime).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`);
+// console.log(`${new Date(endTime).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`);
+// console.log()
+// console.log()
+// console.log('# tz-offset - New Date')
+// console.log('Jakarta Timezone', tzOffset.timeAt(new Date(), "Asia/Jakarta"));
+// console.log('Jakarta Timezone with Remove', tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date())), "Asia/Jakarta"));
+// console.log('--------------------')
+// console.log(`${tzOffset.timeAt(new Date(), "Asia/Jakarta")}`);
+// console.log(`${tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date())), "Asia/Jakarta")}`);
+// console.log()
+// console.log()
+// console.log('# tz-offset - Start End')
+// console.log('start', tzOffset.timeAt(new Date(startTime), "Asia/Jakarta"))
+// console.log('start with remove', tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date(startTime))), "Asia/Jakarta"))
+// console.log('end Timezone', tzOffset.timeAt(new Date(endTime), "Asia/Jakarta"));
+// console.log('end Timezone with remove', tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date(endTime))), "Asia/Jakarta"));
+// console.log('--------------------')
+// console.log(`${tzOffset.timeAt(new Date(startTime), "Asia/Jakarta")}`) //OK
+// console.log(`${tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date(startTime))), "Asia/Jakarta")}`)
+// console.log(`${tzOffset.timeAt(new Date(endTime), "Asia/Jakarta")}`);
+// console.log(`${tzOffset.timeAt(new Date(tzOffset.removeOffset(new Date(endTime))), "Asia/Jakarta")}`);
+// console.log()
+// console.log()
+// console.log("# Set Timezone Asia/Jakarta + tz-offset (remove timezone)")
+// console.log('New Date', new Date(tzOffset.removeOffset(new Date())).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+// console.log('Start', new Date(tzOffset.removeOffset(new Date(startTime))).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));//OK
+// console.log('End', new Date(tzOffset.removeOffset(new Date(endTime))).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));//OK
+// console.log('--------------------')
+// console.log(`${new Date(tzOffset.removeOffset(new Date())).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`);
+// console.log(`${new Date(tzOffset.removeOffset(new Date(startTime))).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`); //OK
+// console.log(`${new Date(tzOffset.removeOffset(new Date(endTime))).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })}`);//OK
+
+/**
+ *    Kesimpulan
+ *      New Date
+ *      - new Date set timzone
+ * 
+ *      Start n End Time
+ *      - remove timezone using tf-offset
+ *      - set timezone using new Date / tf-offset
+ * */

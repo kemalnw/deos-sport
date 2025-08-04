@@ -1,0 +1,11 @@
+exports.CONFIG = {
+    "type": "service_account",
+    "project_id": "project_id"
+    /**
+     *  etc...
+     *  copy from firebase 
+     *  Project Setting -> Service Account -> Klik Generate new private key
+     *  You wil receive file json
+     *  Copy paste all value
+     */
+}

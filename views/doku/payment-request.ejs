@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>DOKU Payment Page - Redirect</title>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black">
+	<!--[if lt IE 9]>
+<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+	<!-- <script type="text/javascript" src="https://staging.doku.com/merchant_data/ocov2/js/doku.analytics.js"></script> -->
+
+	<link rel="stylesheet" type="text/css" href="https://staging.doku.com/merchant_data/ocov2/css/default.min.css" />
+    <link rel="stylesheet" type="text/css" href="https://staging.doku.com/merchant_data/ocov2/css/style.min.css" />
+	<script type="text/javascript">
+		var DYN = (new Date%9e6).toString(36);
+		
+		window['COUNTER' + DYN] = 10;
+		setTimeout(countDown,1000);
+		
+		function countDown(){
+				window['COUNTER' + DYN]--;
+				if(window['COUNTER' + DYN] > 0){
+					setTimeout(countDown,1000);
+				}
+				else
+				{
+					$('#TEXT-CONTINUE').show();
+					$('#BTN-CONTINUE').show();
+				}
+		}
+			
+		$(document).ready(function(){
+			$('#TEXT-CONTINUE').hide();
+			$('#BTN-CONTINUE').hide();
+		});
+	</script>
+
+</head>
+
+<body class="tempdefault tempcolor tempone" onload="document.formRedirect.submit()">
+
+	<section class="default-width">
+
+		<div class="head padd-default">
+			<div class="left-head fleft">
+			</div>
+
+			<div class="clear"></div>
+		</div>
+
+		<br />
+
+		<div class="">
+
+			<div class="loading">
+				<div class="spinner">
+					<div class="double-bounce1"></div>
+					<div class="double-bounce2"></div>
+				</div>
+				<div class="color-one">
+					Please wait.<br />
+				Your request is being processed...<br />
+					<br />
+					<span id="TEXT-CONTINUE">Click button below if the page is not change</span>
+				</div>
+			</div>
+
+                <form action="<%= URL %>" method="POST" id="formRedirect" name="formRedirect">
+                    <table style="display: none;" width="600" border="0" cellspacing="1" cellpadding="5">
+                      <tr>
+                        <td width="100" class="field_label">BASKET</td>
+                        <td width="500" class="field_input"><input name="BASKET" type="text" id="BASKET" value="<%= BASKET %>" size="100" /></td>
+                      </tr>
+                      <tr>
+                        <td width="100" class="field_label">MALLID</td>
+                        <td width="500" class="field_input"><input name="MALLID" type="text" id="MALLID" value="<%= MALLID %>" size="12" /></td>
+                      </tr>
+                      <tr>
+                        <td width="100" class="field_label">CHAINMERCHANT</td>
+                        <td width="500" class="field_input"><input name="CHAINMERCHANT" type="text" id="CHAINMERCHANT" value="<%= CHAINMERCHANT %>" size="12" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">CURRENCY</td>
+                        <td class="field_input"><input name="CURRENCY" type="text" id="CURRENCY" value="<%= CURRENCY %>" size="3" maxlength="3" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">PURCHASECURRENCY</td>
+                        <td class="field_input"><input name="PURCHASECURRENCY" type="text" id="PURCHASECURRENCY" value="<%= PURCHASECURRENCY %>" size="3" maxlength="3" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">AMOUNT</td>
+                        <td class="field_input"><input name="AMOUNT" type="text" id="AMOUNT" value="<%= AMOUNT %>" size="12" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">PURCHASEAMOUNT</td>
+                        <td class="field_input"><input name="PURCHASEAMOUNT" type="text" id="PURCHASEAMOUNT" value="<%= PURCHASEAMOUNT %>" size="12" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">TRANSIDMERCHANT</td>
+                        <td class="field_input"><input name="TRANSIDMERCHANT" type="text" id="TRANSIDMERCHANT" value="<%= TRANSIDMERCHANT %>" size="16" /></td>
+                      </tr>
+                      <!-- <tr>
+                        <td class="field_label">SHAREDKEY</td>
+                        <td class="field_input"><input name="SHAREDKEY" type="text" id="SHAREDKEY" value="" size="15" maxlength="12"/></td>
+                      </tr> -->
+                      <tr>
+                        <td class="field_label">WORDS</td>
+                        <td class="field_input"><input type="text" id="WORDS" name="WORDS" value="<%= WORDS %>" size="60" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">REQUESTDATETIME</td>
+                        <td class="field_input"><input name="REQUESTDATETIME" type="text" id="REQUESTDATETIME" size="14" value="<%= REQUESTDATETIME %>" maxlength="14" />
+                          (YYYYMMDDHHMMSS)</td>
+                      </tr>
+                    
+                      <tr>
+                        <td class="field_label">SESSIONID</td>
+                        <td class="field_input"><input type="text" id="SESSIONID" value="<%= SESSIONID %>" name="SESSIONID" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">PAYMENTCHANNEL</td>
+                        <td class="field_input"><input type="text" id="PAYMENTCHANNEL" name="PAYMENTCHANNEL" value="" /></td>
+                      </tr>
+                      <tr>
+                        <td width="100" class="field_label">EMAIL</td>
+                        <td width="500" class="field_input"><input name="EMAIL" type="text" id="EMAIL" value="<%= EMAIL %>" size="12" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">NAME</td>
+                        <td class="field_input"><input name="NAME" type="text" id="NAME" value="<%= NAME %>" size="30" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">ADDRESS</td>
+                        <td class="field_input"><input name="ADDRESS" type="text" id="ADDRESS" value="<%= ADDRESS %>" size="50" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">COUNTRY</td>
+                        <td class="field_input"><input name="COUNTRY" type="text" id="COUNTRY" value="<%= COUNTRY %>" size="50" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">STATE</td>
+                        <td class="field_input"><input name="STATE" type="text" id="STATE" value="<%= STATE %>" size="50" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">CITY</td>
+                        <td class="field_input"><input name="CITY" type="text" id="CITY" value="<%= CITY %>" size="50" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">PROVINCE</td>
+                        <td class="field_input"><input name="PROVINCE" type="text" id="PROVINCE" value="<%= PROVINCE %>" size="50" maxlength="50" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">ZIPCODE</td>
+                        <td class="field_input"><input name="ZIPCODE" type="text" id="ZIPCODE" value="" size="6" maxlength="10" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">HOMEPHONE</td>
+                        <td class="field_input"><input name="HOMEPHONE" type="text" id="HOMEPHONE" value="" size="12" maxlength="20" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">MOBILEPHONE</td>
+                        <td class="field_input"><input name="MOBILEPHONE" type="text" id="MOBILEPHONE" value="<%= MOBILEPHONE %>" size="12" maxlength="20" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">WORKPHONE</td>
+                        <td class="field_input"><input name="WORKPHONE" type="text" id="WORKPHONE" value="" size="12" maxlength="20" /></td>
+                      </tr>
+                      <tr>
+                        <td class="field_label">BIRTHDATE</td>
+                        <td class="field_input"><input name="BIRTHDATE" type="text" id="BIRTHDATE" value="<%= BIRTHDATE %>" size="12" maxlength="8" /></td>
+                      </tr>
+                      
+                    </table><br /><br />
+                    <!-- <input name="submit" type="submit" class="bt_submit" id="submit" value="SUBMIT" />
+                    </form> -->
+
+				<input type="submit" class="default-btn-page font-reg" id="BTN-CONTINUE" value="Continue">
+		</form>
+
+		</div>
+
+	</section>
+
+	<div class="footer">
+		<div id="copyright" class="">Copyright DOKU 2020</div>
+	</div>
+
+</body>
+
+</html>

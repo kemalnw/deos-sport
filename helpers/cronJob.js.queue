@@ -1,0 +1,499 @@
+const PORT = process.env.REDIS_PORT;
+const HOST = process.env.REDIS_HOST;
+const cron = require('node-cron');
+const redis = require('redis');
+const client = redis.createClient(PORT, HOST);
+client.on('connect', function () {
+    console.log('Redis client connected', HOST, PORT);
+});
+client.on('error', function (err) {
+    console.log(err)
+    Sentry.captureException(err);
+});
+
+const kue = require('kue');
+const queue = kue.createQueue({
+    prefix: 'q',
+    redis: {
+        port: PORT,
+        host: HOST,
+        // auth: 'password',
+        // db: 3, // if provided select a non-default redis db
+        // options: {
+        //   // see https://github.com/mranney/node_redis#rediscreateclient
+        // }
+    }
+});
+
+const { sendEmail } = require('./sendEmail');
+const Event = require('../models').events;
+const EventGroup = require('../models').event_groups;
+const Participant = require('../models').participants;
+const User = require('../models').users;
+const Sentry = require('@sentry/node');
+const serviceCrud = require('../src/services/crud');
+const sequelize = require('../models/index').sequelize;
+const Op = require('sequelize').Op;
+const _ = require('lodash');
+const LOCAL_DATE = require("../constants/localDateConstant");
+const fcm = require('./fcm');
+const dayjs = require('dayjs');
+const tzOffset = require("tz-offset");
+tzOffset.offsetOf("Asia/Jakarta");
+const MAX_EMAILS_PER_SENDING = 15;
+const MAX_NOTIFICATIONS_PER_SENDING = 15;
+
+// @ForTesting
+// const paramEmailToday = {
+//     from: '"Tesd" <pamerun@digitalone.co.id>',
+//     to: ['adip.satu@mailinator.com'],
+//     subject: "Event Today",
+//     template: "cron-event-day",
+//     context: {
+//         when: 'HARI INI',
+//         event: {
+//             name: 'name', group: 'group',
+//             start: 'end', end: 'start',
+//         }
+//     },
+//     defaultLayout: "cron-event-day.ejs"
+// };
+// queue
+//     .create('email', { paramEmail: paramEmailToday })
+//     .save()
+// console.log("SAVING JOB")
+
+// queue.process('email', function (job, done) {
+//     sendEmail(job.data.paramEmail);
+//     done()
+// })
+// console.log("PROCESS JOB")
+
+function schedule() {
+    // Today At 03.00
+    cron.schedule('0 3 * * *', async function () {
+        console.log("Cron Job Today", tzOffset.timeAt(new Date(), "Asia/Jakarta"))
+
+        try {
+            // let date = new Date(); // Local
+            let date = tzOffset.timeAt(new Date(), "Asia/Jakarta") // Prod
+
+            let monthToday = `${date.getMonth() + 1}`;
+            if (monthToday.length === 1) monthToday = `0${monthToday}`;
+
+            let dateToday = `${date.getDate()}`;
+            if (dateToday.length === 1) dateToday = `0${dateToday}`;
+            let today = `${date.getFullYear()}-${monthToday}-${dateToday}`;
+
+            const eventGroupsToday = await serviceCrud.findAll(EventGroup, {
+                include: [
+                    Event,
+                    {
+                        model: Participant,
+                        include: [User]
+                    }],
+                where: {
+                    [Op.and]: [
+                        sequelize.where(
+                            sequelize.fn('DATE', sequelize.col('start_time')),
+                            '>=', today + ' 00:00:00'
+                        ),
+                        sequelize.where(
+                            sequelize.fn('DATE', sequelize.col('start_time')),
+                            '<=', today + ' 00:00:00'
+                        )
+                    ],
+                }
+            })
+
+            eventGroupsToday.forEach(section => {
+                if (section.participants.length) {
+                    const startTime = section.start_time.split(" ")
+                    startTime[0] = startTime[0].split('-')
+                    startTime[1] = startTime[1].split(':')
+                    const startDay = LOCAL_DATE.DAYS[new Date(section.start_time).getDay()];
+                    const startMonth = LOCAL_DATE.MONTHS[+startTime[0][1]]
+
+                    const endTime = section.end_time.split(" ")
+                    endTime[0] = endTime[0].split('-')
+                    endTime[1] = endTime[1].split(':')
+                    const endDay = LOCAL_DATE.DAYS[new Date(section.end_time).getDay()];
+                    const endMonth = LOCAL_DATE.MONTHS[+endTime[0][1]]
+
+                    const event = {
+                        name: section.event.name,
+                        group: section.name,
+                        start: `${startDay}, ${+startTime[0][2]} ${startMonth} ${startTime[0][0]}, Pukul ${startTime[1][0]}:${startTime[1][1]} WIB`,
+                        end: `${endDay}, ${+endTime[0][2]} ${endMonth} ${endTime[0][0]}, Pukul ${endTime[1][0]}:${endTime[1][1]} WIB`
+                    };
+
+                    let emails = []
+                    let tokens = []
+                    section.participants.forEach(el => {
+                        if (el.user.email) {
+                            emails.push(el.user.email);
+                        }
+                        if (el.user.token_fcm) {
+                            tokens.push(el.user.token_fcm)
+                        }
+                    });
+                    emails = _.chunk(emails, MAX_EMAILS_PER_SENDING)
+                    tokens = _.chunk(tokens, MAX_NOTIFICATIONS_PER_SENDING)
+
+                    // EMAIL
+                    if (emails.length) {
+                        emails.forEach(el => {
+                            if (el.length) {
+                                const paramEmail = {
+                                    from: '"PAMERUN" <pamerun@digitalone.co.id>',
+                                    to: el,
+                                    subject: `[HARI INI] ${event.name}`,
+                                    template: "cron-event-day",
+                                    context: {
+                                        when: 'HARI INI', event
+                                    },
+                                    defaultLayout: "cron-event-day.ejs"
+                                };
+                                queue
+                                    .create('email', { paramEmail: paramEmail })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+
+                    // NOTIFICATION
+                    if (tokens.length) {
+                        tokens.forEach(el => {
+                            if (el.length) {
+                                const paramNotif = {
+                                    tokens: el,
+                                    notification: {
+                                        title: `${event.name}`,
+                                        body: `[HARI INI] ${event.start}`
+                                    }
+                                }
+                                queue
+                                    .create('notification', { paramNotif })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+                }
+            });
+        } catch (err) {
+            console.log(err)
+            Sentry.captureException(err);
+        }
+    },
+        {
+            timezone: "Asia/Jakarta"
+        })
+
+
+    // Tomorrow At 12.00
+    cron.schedule('0 12 * * *', async function () {
+        console.log("Cron Job Tomorrow", tzOffset.timeAt(new Date(), "Asia/Jakarta"))
+
+        try {
+            // let date = new Date(); // Local
+            let date = tzOffset.timeAt(new Date(), "Asia/Jakarta") // Prod
+            date.setDate(date.getDate() + 1)
+
+            let monthTomorrow = `${date.getMonth() + 1}`;
+            if (monthTomorrow.length === 1) monthTomorrow = `0${monthTomorrow}`;
+
+            let dateTomorrow = `${date.getDate()}`;
+            if (dateTomorrow.length === 1) dateTomorrow = `0${dateTomorrow}`;
+            let tomorrow = `${date.getFullYear()}-${monthTomorrow}-${dateTomorrow}`;
+
+            const eventGroupsTomorrow = await serviceCrud.findAll(EventGroup, {
+                include: [
+                    Event,
+                    {
+                        model: Participant,
+                        include: [User]
+                    }],
+                where: {
+                    [Op.and]: [
+                        sequelize.where(
+                            sequelize.fn('DATE', sequelize.col('start_time')),
+                            '>=', tomorrow + ' 00:00:00'
+                        ),
+                        sequelize.where(
+                            sequelize.fn('DATE', sequelize.col('start_time')),
+                            '<=', tomorrow + ' 00:00:00'
+                        )
+                    ],
+                }
+            })
+
+            eventGroupsTomorrow.forEach(section => {
+                if (section.participants.length) {
+                    const startTime = section.start_time.split(" ")
+                    startTime[0] = startTime[0].split('-')
+                    startTime[1] = startTime[1].split(':')
+                    const startDay = LOCAL_DATE.DAYS[new Date(section.start_time).getDay()];
+                    const startMonth = LOCAL_DATE.MONTHS[+startTime[0][1]]
+
+                    const endTime = section.end_time.split(" ")
+                    endTime[0] = endTime[0].split('-')
+                    endTime[1] = endTime[1].split(':')
+                    const endDay = LOCAL_DATE.DAYS[new Date(section.end_time).getDay()];
+                    const endMonth = LOCAL_DATE.MONTHS[+endTime[0][1]]
+
+                    const event = {
+                        name: section.event.name,
+                        group: section.name,
+                        start: `${startDay}, ${+startTime[0][2]} ${startMonth} ${startTime[0][0]}, Pukul ${startTime[1][0]}:${startTime[1][1]} WIB`,
+                        end: `${endDay}, ${+endTime[0][2]} ${endMonth} ${endTime[0][0]}, Pukul ${endTime[1][0]}:${endTime[1][1]} WIB`
+                    };
+
+                    let emails = []
+                    let tokens = []
+                    section.participants.forEach(el => {
+                        if (el.user.email) {
+                            emails.push(el.user.email);
+                        }
+                        if (el.user.token_fcm) {
+                            tokens.push(el.user.token_fcm)
+                        }
+                    });
+                    emails = _.chunk(emails, MAX_EMAILS_PER_SENDING)
+                    tokens = _.chunk(tokens, MAX_NOTIFICATIONS_PER_SENDING)
+
+                    // EMAIL
+                    if (emails.length) {
+                        emails.forEach(el => {
+                            if (el.length) {
+                                const paramEmail = {
+                                    from: '"PAMERUN" <pamerun@digitalone.co.id>',
+                                    to: el,
+                                    subject: `[BESOK] ${event.name}`,
+                                    template: "cron-event-day",
+                                    context: {
+                                        when: 'BESOK', event
+                                    },
+                                    defaultLayout: "cron-event-day.ejs"
+                                };
+                                queue
+                                    .create('email', { paramEmail: paramEmail })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+
+                    // NOTIFICATION
+                    if (tokens.length) {
+                        tokens.forEach(el => {
+                            if (el.length) {
+                                const paramNotif = {
+                                    tokens: el,
+                                    notification: {
+                                        title: `${event.name}`,
+                                        body: `[BESOK] ${event.start}`
+                                    }
+                                }
+                                queue
+                                    .create('notification', { paramNotif })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+                }
+            });
+        } catch (err) {
+            console.log(err)
+            Sentry.captureException(err);
+        }
+    },
+        {
+            timezone: "Asia/Jakarta"
+        })
+
+
+    // Every 15 Minute
+    cron.schedule('*/15 * * * *', async function () {
+        const dateJob = tzOffset.timeAt(new Date(), "Asia/Jakarta");
+        console.log("Cron Job Soon", dateJob)
+        try {
+            // let date = new Date(); // Local
+            // NOW
+            let date = tzOffset.timeAt(new Date(), "Asia/Jakarta") // Prod
+
+            let monthNow = `${date.getMonth() + 1}`;
+            if (monthNow.length === 1) monthNow = `0${monthNow}`;
+
+            let dateNow = `${date.getDate()}`;
+            if (dateNow.length === 1) dateNow = `0${dateNow}`;
+
+            let hrNow = `${date.getHours()}`;
+            let minNow = `${date.getMinutes()}`;
+            if (minNow.length === 1) minNow = `0${minNow}`
+            let now = `${date.getFullYear()}-${monthNow}-${dateNow} ${hrNow}:${minNow}:00`;
+
+            // UNTIL
+            date.setMinutes(date.getMinutes() + 15);
+
+            let monthUntil = `${date.getMonth() + 1}`;
+            if (monthUntil.length === 1) monthUntil = `0${monthUntil}`;
+
+            let dateUntil = `${date.getDate()}`;
+            if (dateUntil.length === 1) dateUntil = `0${dateUntil}`;
+
+            let hrUntil = `${date.getHours()}`;
+            let minUntil = `${date.getMinutes()}`;
+            if (minUntil.length === 1) minUntil = `0${minUntil}`
+            let until = `${date.getFullYear()}-${monthUntil}-${dateUntil} ${hrUntil}:${minUntil}:00`;
+
+            const eventGroupsSoon = await serviceCrud.findAll(EventGroup, {
+                include: [
+                    Event,
+                    {
+                        model: Participant,
+                        include: [User]
+                    }],
+                where: {
+                    notif_soon: 0,
+                    [Op.and]: [
+                        {
+                            start_time: { [Op.gte]: now }
+                        },
+                        {
+                            start_time: { [Op.lte]: until }
+                        }
+                    ]
+                }
+            })
+
+            let ids = []
+            let emails = []
+            let tokens = []
+            let groups = []
+            eventGroupsSoon.forEach(section => {
+                if (section.participants.length) {
+                    const startTime = section.start_time.split(" ")
+                    startTime[0] = startTime[0].split('-')
+                    startTime[1] = startTime[1].split(':')
+                    const startDay = LOCAL_DATE.DAYS[new Date(section.start_time).getDay()];
+                    const startMonth = LOCAL_DATE.MONTHS[+startTime[0][1]]
+
+                    const endTime = section.end_time.split(" ")
+                    endTime[0] = endTime[0].split('-')
+                    endTime[1] = endTime[1].split(':')
+                    const endDay = LOCAL_DATE.DAYS[new Date(section.end_time).getDay()];
+                    const endMonth = LOCAL_DATE.MONTHS[+endTime[0][1]]
+
+                    const event = {
+                        name: section.event.name,
+                        groupID: section.id,
+                        group: section.name,
+                        start: `${startDay}, ${+startTime[0][2]} ${startMonth} ${startTime[0][0]}, Pukul ${startTime[1][0]}:${startTime[1][1]} WIB`,
+                        end: `${endDay}, ${+endTime[0][2]} ${endMonth} ${endTime[0][0]}, Pukul ${endTime[1][0]}:${endTime[1][1]} WIB`
+                    };
+                    groups.push(event)
+
+                    section.participants.forEach(el => {
+                        if (el.user) {
+                            ids.push(el.user.id);
+                            if (el.user.email) {
+                                emails.push(el.user.email);
+                            }
+                            if (el.user.token_fcm) {
+                                tokens.push(el.user.token_fcm)
+                            }
+                        }
+                    });
+                    emails = _.chunk(emails, MAX_EMAILS_PER_SENDING)
+                    tokens = _.chunk(tokens, MAX_NOTIFICATIONS_PER_SENDING)
+
+                    // EMAIL
+                    if (emails.length) {
+                        emails.forEach(el => {
+                            if (el.length) {
+                                const paramEmail = {
+                                    from: '"PAMERUN" <pamerun@digitalone.co.id>',
+                                    to: el,
+                                    subject: `[SEGERA DIMULAI] ${event.name}`,
+                                    template: "cron-event-day",
+                                    context: {
+                                        when: 'SEGERA DIMULAI', event
+                                    },
+                                    defaultLayout: "cron-event-day.ejs"
+                                };
+                                queue
+                                    .create('email_soon', { paramEmail })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+
+                    // NOTIFICATION
+                    if (tokens.length) {
+                        tokens.forEach(el => {
+                            if (el.length) {
+                                const paramNotif = {
+                                    tokens: el,
+                                    notification: {
+                                        title: `${event.name}`,
+                                        body: `[SEGERA DIMULAI] ${event.start}`
+                                    }
+                                }
+                                queue
+                                    .create('notification_soon', { paramNotif })
+                                    .removeOnComplete(true)
+                                    .save()
+                            }
+                        })
+                    }
+                }
+            })
+
+            // Update notif_soon
+            if (eventGroupsSoon.length) {
+                const eventGroupsSoonID = _.map(eventGroupsSoon, 'id');
+                await serviceCrud.update(EventGroup, {
+                    notif_soon: 1,
+                    notif_detail: {
+                        ids, emails, dateJob, dateJobString: `${dateJob}`, groups
+                    }
+                }, {
+                    where: {
+                        id: { [Op.in]: eventGroupsSoonID }
+                    }
+                })
+            }
+        } catch (err) {
+            console.log(err)
+            Sentry.captureException(err);
+        }
+    },
+        {
+            timezone: "Asia/Jakarta"
+        });
+
+    queue.process('email_soon', function (job, done) {
+        sendEmail(job.data.paramEmail);
+        done()
+    })
+    queue.process('notification_soon', function (job, done) {
+        fcm.multiReceiver(job.data.paramNotif);
+        done()
+    })
+
+    queue.process('email', function (job, done) {
+        sendEmail(job.data.paramEmail);
+        done()
+    })
+    queue.process('notification', function (job, done) {
+        fcm.multiReceiver(job.data.paramNotif);
+        done()
+    })
+
+}
+
+module.exports = schedule;

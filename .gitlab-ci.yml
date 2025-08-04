@@ -1,0 +1,15 @@
+image: kroniak/ssh-client
+
+.init_ssh: &init_ssh |
+  eval $(ssh-agent -s)
+  echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh
+  chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+
+deploy_stagging:
+  script:
+    - *init_ssh
+    - ssh -t root@api-dev.deossport.com "cd /var/www/api-dev.deossport.com && git pull origin dev && npm install --only=prod --progress=false && sequelize-cli db:migrate --env development && pm2 reload api-dev --update-env; exit"
+  only:
+    - dev
